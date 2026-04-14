@@ -1,6 +1,6 @@
 ---
 title: "The Hidden Crisis: Youth Out-of-School Rates Worldwide"
-author: "Your Name"
+author: "Priyajbhai Pathak"
 date: today
 format:
   html:
@@ -17,7 +17,7 @@ execute:
 
 ## Introduction
 
-Around the world, millions of young people of **upper secondary school age** are not in school. This report explores the **out-of-school rate** — the percentage of youth who should be enrolled in upper secondary education but are not — using data from UNICEF across multiple countries and years (2010–2020).
+Around the world, millions of young people of **upper secondary school age** are not in school. This report explores the **out-of-school rate** the percentage of youth who should be enrolled in upper secondary education but are not using data from UNICEF across multiple countries and years (2010–2020).
 
 This is not merely an education issue. It is a crisis of *opportunity*, *inequality*, and *human potential*. The data reveals stark disparities between wealthy and poorer nations, and persistent gender gaps that leave girls behind in many regions.
 
@@ -273,7 +273,7 @@ in educational infrastructure, teacher training, and poverty reduction.
 ## Conclusion
 
 The data tells a sobering story. Youth exclusion from upper secondary education is
-**not random** — it clusters in the world's poorest regions and is deeply tied to
+**not random** it clusters in the world's poorest regions and is deeply tied to
 national wealth. Yet the data also shows that progress *is* possible.
 
 Key takeaways:
@@ -285,7 +285,7 @@ Key takeaways:
 - **The trend is mixed**: The global average has changed over the decade, but
   progress is uneven across regions.
 
-Investing in education is not just a moral imperative — it is an economic one.
+Investing in education is not just a moral imperative it is an economic one.
 Keeping young people in school breaks cycles of poverty, reduces inequality, and
 builds the human capital nations need to thrive. The question is not whether we
 can afford to act, but whether we can afford *not* to.
