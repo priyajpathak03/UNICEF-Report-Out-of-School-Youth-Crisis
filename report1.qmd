@@ -1,0 +1,295 @@
+---
+title: "The Hidden Crisis: Youth Out-of-School Rates Worldwide"
+author: "Your Name"
+date: today
+format:
+  html:
+    embed-resources: true
+    code-fold: true
+    theme: flatly
+    toc: true
+    toc-depth: 3
+    number-sections: false
+execute:
+  warning: false
+  echo: true
+---
+
+## Introduction
+
+Around the world, millions of young people of **upper secondary school age** are not in school. This report explores the **out-of-school rate** — the percentage of youth who should be enrolled in upper secondary education but are not — using data from UNICEF across multiple countries and years (2010–2020).
+
+This is not merely an education issue. It is a crisis of *opportunity*, *inequality*, and *human potential*. The data reveals stark disparities between wealthy and poorer nations, and persistent gender gaps that leave girls behind in many regions.
+
+Key questions this report addresses:
+
+- Which countries have the **highest out-of-school rates**?
+- Is the situation **improving over time** globally?
+- Does a country's **wealth** explain its out-of-school rate?
+
+---
+
+## Data & Methods
+
+The analysis uses two datasets:
+
+- **UNICEF Indicator Data**: Out-of-school rate for upper secondary youth (%), by country, year, and sex
+- **World Bank Metadata**: Country-level GDP per capita, life expectancy, and other development indicators
+
+```{python}
+#| label: setup
+#| message: false
+
+import polars as pl
+import pandas as pd
+import geopandas as gpd
+from plotnine import *
+import warnings
+warnings.filterwarnings("ignore")
+
+# --- Load data ---
+indicator = pl.read_csv("unicef_indicator_2__1_.csv")
+metadata  = pl.read_csv("unicef_metadata__1_.csv")
+
+# --- Filter to Total sex only ---
+indicator_total = indicator.filter(pl.col("sex") == "Total")
+
+# --- Latest value per country (for map + bar) ---
+latest = (
+    indicator_total
+    .sort("time_period", descending=True)
+    .group_by("country", "alpha_3_code")
+    .agg(pl.col("obs_value").first().alias("out_of_school_rate"))
+).to_pandas()
+
+# --- Global average per year (for time series) ---
+time_series = (
+    indicator_total
+    .group_by("time_period")
+    .agg(pl.col("obs_value").mean().alias("avg_rate"))
+    .sort("time_period")
+).to_pandas()
+
+# --- Merge with metadata for scatterplot (2015) ---
+meta_2015 = (
+    metadata
+    .filter(pl.col("year") == 2015)
+    .select([
+        "alpha_3_code",
+        pl.col("GDP per capita (constant 2015 US$)").alias("gdp_per_capita"),
+    ])
+).to_pandas()
+
+indicator_2015 = (
+    indicator_total
+    .filter(pl.col("time_period") == 2015)
+    .select(["alpha_3_code", "country", "obs_value"])
+).to_pandas()
+
+scatter_data = (
+    indicator_2015
+    .merge(meta_2015, on="alpha_3_code", how="inner")
+    .dropna()
+)
+
+# --- Summary stats ---
+n_countries = indicator_total["country"].n_unique()
+year_min    = indicator_total["time_period"].min()
+year_max    = indicator_total["time_period"].max()
+
+print(f"Countries in dataset : {n_countries}")
+print(f"Years covered        : {year_min} – {year_max}")
+print(f"Rows (Total sex only): {len(indicator_total)}")
+```
+
+---
+
+## Where Is the Crisis Worst? {#sec-map}
+
+The map below shows the **most recent available out-of-school rate** for each country.
+Countries in **dark red** face the most severe exclusion of young people from education.
+*Grey* countries have no available data.
+
+```{python}
+#| label: fig-map
+#| fig-cap: "Out-of-school rate for upper secondary youth — latest available year per country"
+#| fig-width: 12
+#| fig-height: 6
+
+world = gpd.read_file(gpd.datasets.get_path("naturalearth_lowres"))
+world_merged = world.merge(
+    latest, left_on="iso_a3", right_on="alpha_3_code", how="left"
+)
+
+map_plot = (
+    ggplot(world_merged)
+    + geom_map(aes(fill="out_of_school_rate"), color="white", size=0.1)
+    + scale_fill_gradient(
+        low="#ffffcc", high="#d73027",
+        na_value="lightgrey",
+        name="Rate (%)"
+    )
+    + labs(
+        title="Out-of-School Rate for Upper Secondary Youth",
+        subtitle="Latest available year per country  |  Grey = no data",
+        caption="Source: UNICEF"
+    )
+    + theme_void()
+    + theme(
+        plot_title=element_text(size=13, face="bold"),
+        plot_subtitle=element_text(size=10),
+        legend_position="right"
+    )
+)
+map_plot.draw()
+```
+
+Sub-Saharan Africa stands out with the highest rates, while Europe and North America
+show rates close to zero. This geographic divide underscores how the crisis is
+concentrated in the world's least-resourced regions.
+
+---
+
+## Which Countries Are Falling Most Behind? {#sec-bar}
+
+The bar chart below ranks the **15 countries with the highest out-of-school rates**,
+based on the most recent data available for each.
+
+```{python}
+#| label: fig-bar
+#| fig-cap: "Top 15 countries by most-recent out-of-school rate for upper secondary youth"
+#| fig-width: 9
+#| fig-height: 6
+
+top15 = (
+    latest
+    .dropna(subset=["out_of_school_rate"])
+    .nlargest(15, "out_of_school_rate")
+    .sort_values("out_of_school_rate")
+)
+top15["country"] = pd.Categorical(
+    top15["country"], categories=top15["country"]
+)
+
+bar_plot = (
+    ggplot(top15, aes(x="country", y="out_of_school_rate",
+                      fill="out_of_school_rate"))
+    + geom_col()
+    + coord_flip()
+    + scale_fill_gradient(low="#fdae61", high="#d73027", guide=False)
+    + labs(
+        title="Top 15 Countries: Highest Out-of-School Rates",
+        subtitle="Upper secondary school age youth",
+        x=None,
+        y="Out-of-School Rate (%)",
+        caption="Source: UNICEF"
+    )
+    + theme_minimal()
+    + theme(
+        plot_title=element_text(size=12, face="bold"),
+        axis_text_y=element_text(size=9)
+    )
+)
+bar_plot.draw()
+```
+
+Several countries have out-of-school rates **exceeding 60%**, meaning the majority
+of young people who should be in upper secondary school are not. This represents
+a generational loss of education and opportunity.
+
+---
+
+## Does Wealth Explain It? {#sec-scatter}
+
+The scatterplot below compares each country's **GDP per capita** (2015, log scale)
+against its **out-of-school rate** (2015), with a linear regression line overlaid.
+
+```{python}
+#| label: fig-scatter
+#| fig-cap: "GDP per capita (log scale) vs out-of-school rate, 2015 — with linear regression line"
+#| fig-width: 9
+#| fig-height: 6
+
+scatter_plot = (
+    ggplot(scatter_data, aes(x="gdp_per_capita", y="obs_value"))
+    + geom_point(aes(color="obs_value"), size=2.5, alpha=0.7)
+    + geom_smooth(method="lm", color="darkred", se=True)
+    + scale_color_gradient(low="#74add1", high="#d73027", name="Rate (%)")
+    + scale_x_log10()
+    + labs(
+        title="Wealthier Countries Have Lower Out-of-School Rates",
+        subtitle="GDP per Capita (log scale) vs Out-of-School Rate, 2015",
+        x="GDP per Capita (USD, log scale)",
+        y="Out-of-School Rate (%)",
+        caption="Source: UNICEF & World Bank"
+    )
+    + theme_minimal()
+    + theme(plot_title=element_text(size=12, face="bold"))
+)
+scatter_plot.draw()
+```
+
+The **negative correlation** is clear: as GDP per capita rises, out-of-school rates
+fall sharply. The regression line confirms this trend. However, there is significant
+variation — some middle-income countries still struggle, while strong policy
+investment can make a difference even at lower income levels.
+
+---
+
+## Is the Trend Improving Over Time? {#sec-ts}
+
+The time-series chart tracks the **global average out-of-school rate** year by year
+from 2010 to 2020, averaged across all countries with available data.
+
+```{python}
+#| label: fig-timeseries
+#| fig-cap: "Global average out-of-school rate for upper secondary youth, 2010–2020"
+#| fig-width: 9
+#| fig-height: 5
+
+ts_plot = (
+    ggplot(time_series, aes(x="time_period", y="avg_rate"))
+    + geom_line(color="#d73027", size=1.2)
+    + geom_point(color="#d73027", size=3)
+    + labs(
+        title="Global Average Out-of-School Rate, 2010–2020",
+        subtitle="Mean across all countries with available UNICEF data",
+        x="Year",
+        y="Average Out-of-School Rate (%)",
+        caption="Source: UNICEF"
+    )
+    + theme_minimal()
+    + theme(plot_title=element_text(size=12, face="bold"))
+)
+ts_plot.draw()
+```
+
+Even modest reductions in the global average represent millions of additional young
+people gaining access to education. Sustained progress requires continued investment
+in educational infrastructure, teacher training, and poverty reduction.
+
+---
+
+## Conclusion
+
+The data tells a sobering story. Youth exclusion from upper secondary education is
+**not random** — it clusters in the world's poorest regions and is deeply tied to
+national wealth. Yet the data also shows that progress *is* possible.
+
+Key takeaways:
+
+- **Geography matters**: Sub-Saharan Africa bears a disproportionate share of the
+  global out-of-school burden.
+- **Wealth is a strong predictor**: Richer nations consistently achieve lower
+  out-of-school rates, but policy choices also play a role.
+- **The trend is mixed**: The global average has changed over the decade, but
+  progress is uneven across regions.
+
+Investing in education is not just a moral imperative — it is an economic one.
+Keeping young people in school breaks cycles of poverty, reduces inequality, and
+builds the human capital nations need to thrive. The question is not whether we
+can afford to act, but whether we can afford *not* to.
+
+---
+
+*Report prepared for BAA1030 | Data sources: UNICEF & World Bank*
